@@ -1,10 +1,14 @@
 import os
-import json
 import boto3
-from datetime import datetime
-
+import sys
 from bs4 import BeautifulSoup
-import requests as req
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+
+
 
 OLX_LINK = 'https://www.olx.pl/d/nieruchomosci/mieszkania/wynajem/warszawa/?search%5Bprivate_business%5D=private&search%5Border%5D=created_at:desc'
 
@@ -15,14 +19,25 @@ PROHIBITED_DISTRICTS = ['Białołęka', 'Ursus', 'Wawer', 'Targówek', 'Bemowo']
 
 
 def get_html():
-    return req.get(OLX_LINK).text
+    options = Options()
+    options.binary_location = './headless-chromium'
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--single-process')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = webdriver.Chrome('./chromedriver', options=options)
+    driver.get(OLX_LINK)
+    wait = WebDriverWait(driver, 20)
+    element = EC.visibility_of_element_located((By.CSS_SELECTOR, "#onetrust-accept-btn-handler"))
+    wait.until(element).click()
+    return driver.page_source
 
 
 def get_offers():
     result = []
+    print("INITIAL")
     soup = BeautifulSoup(get_html(), 'html.parser')
-    offers = soup.find_all("div", {"class": "css-1sw7q4x"})
-
+    offers = soup.find_all('div', {"class": "css-1sw7q4x"})
     for offer in offers:
         try:
 
@@ -87,6 +102,7 @@ def send_email(count, offers):
             'Charset': 'utf-8',
             'Data': "Oferty z OLX",
         },
+
     }
 
     client.send_email(
@@ -102,6 +118,10 @@ def send_email(count, offers):
 def lambda_handler(event, context):
     o_count, offers = get_offers()
     send_email(o_count, offers)
-    return {
-        'statusCode': 200
-    }
+    sys.exit(0)
+    # return {
+    #     'statusCode': 200
+    # }
+
+
+lambda_handler("", "")
