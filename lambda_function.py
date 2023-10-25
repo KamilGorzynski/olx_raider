@@ -9,38 +9,37 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
 
+OLX_LINK = "https://www.olx.pl/d/nieruchomosci/mieszkania/wynajem/warszawa/?search%5Bprivate_business%5D=private&search%5Border%5D=created_at:desc"
 
-OLX_LINK = 'https://www.olx.pl/d/nieruchomosci/mieszkania/wynajem/warszawa/?search%5Bprivate_business%5D=private&search%5Border%5D=created_at:desc'
-
-MAX_PRIZE = 2700
-MIN_PRIZE = 1500
-MIN_AREA = 35
-PROHIBITED_DISTRICTS = ['Białołęka', 'Ursus', 'Wawer', 'Targówek', 'Bemowo']
+MAX_PRICE = os.environ.get("MAX_PRICE", 2700)
+MIN_PRICE = os.environ.get("MAX_PRICE", 1500)
+MIN_AREA = os.environ.get("MIN_AREA", 35)
+PROHIBITED_DISTRICTS = ["Białołęka", "Ursus", "Wawer", "Targówek", "Bemowo"]
 
 
 def get_html():
     options = Options()
-    options.binary_location = './headless-chromium'
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--single-process')
-    options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome('./chromedriver', options=options)
+    options.binary_location = "./headless-chromium"
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--single-process")
+    options.add_argument("--disable-dev-shm-usage")
+    driver = webdriver.Chrome("./chromedriver", options=options)
     driver.get(OLX_LINK)
     wait = WebDriverWait(driver, 20)
-    element = EC.visibility_of_element_located((By.CSS_SELECTOR, "#onetrust-accept-btn-handler"))
+    element = EC.visibility_of_element_located(
+        (By.CSS_SELECTOR, "#onetrust-accept-btn-handler")
+    )
     wait.until(element).click()
     return driver.page_source
 
 
 def get_offers():
     result = []
-    print("INITIAL")
-    soup = BeautifulSoup(get_html(), 'html.parser')
-    offers = soup.find_all('div', {"class": "css-1sw7q4x"})
+    soup = BeautifulSoup(get_html(), "html.parser")
+    offers = soup.find_all("div", {"class": "css-1sw7q4x"})
     for offer in offers:
         try:
-
             if offer.find_all("div", {"class": "css-1jh69qu"}):
                 # WYRÓŻNIONE
                 continue
@@ -50,19 +49,31 @@ def get_offers():
                 continue
 
             area_element = offer.find("span", {"class": "css-643j0o"})
-            if not area_element or MIN_AREA > float(area_element.contents[1].replace("m²", "").replace(" ", "").replace(",", ".")):
+            if not area_element or MIN_AREA > float(
+                area_element.contents[1]
+                .replace("m²", "")
+                .replace(" ", "")
+                .replace(",", ".")
+            ):
                 continue
 
-            district = offer.find("p", {"class": "css-veheph er34gjf0"}).contents[0].split(" -")[0].split(' ')[1]
+            district = (
+                offer.find("p", {"class": "css-veheph er34gjf0"})
+                .contents[0]
+                .split(" -")[0]
+                .split(" ")[1]
+            )
             if district in PROHIBITED_DISTRICTS:
                 continue
 
-            price = offer.find_all("p", {"class": "css-10b0gli er34gjf0"})[0].contents[0]
-            int_price = int(price.replace(" ", "").replace('zł', ""))
-            if MIN_PRIZE <= int_price <= MAX_PRIZE:
-                link = offer.next.get_attribute_list('href')[0]
-                if link.startswith('/d'):
-                    result.append('https://www.olx.pl' + link)
+            price = offer.find_all("p", {"class": "css-10b0gli er34gjf0"})[0].contents[
+                0
+            ]
+            int_price = int(price.replace(" ", "").replace("zł", ""))
+            if MIN_PRICE <= int_price <= MAX_PRICE:
+                link = offer.next.get_attribute_list("href")[0]
+                if link.startswith("/d"):
+                    result.append("https://www.olx.pl" + link)
                 else:
                     result.append(link)
         except Exception as err:
@@ -74,12 +85,12 @@ def get_offers():
 def get_offers_list_items(offers):
     result = ""
     for offer in offers:
-        result += f'<li>{offer}</li><br/>'
+        result += f"<li>{offer}</li><br/>"
     return result
 
 
 def send_email(count, offers):
-    client = boto3.client('ses')
+    client = boto3.client("ses")
     body_html = f"""<html>
         <head></head>
         <body>
@@ -92,26 +103,25 @@ def send_email(count, offers):
                     """
 
     email_message = {
-        'Body': {
-            'Html': {
-                'Charset': 'utf-8',
-                'Data': body_html,
+        "Body": {
+            "Html": {
+                "Charset": "utf-8",
+                "Data": body_html,
             },
         },
-        'Subject': {
-            'Charset': 'utf-8',
-            'Data': "Oferty z OLX",
+        "Subject": {
+            "Charset": "utf-8",
+            "Data": "Oferty z OLX",
         },
-
     }
 
     client.send_email(
         Destination={
-            'ToAddresses': os.environ.get('TO_ADDRESSES', '').split(","),
+            "ToAddresses": os.environ.get("TO_ADDRESSES", "").split(","),
         },
         Message=email_message,
-        Source='k.gorzyn145@wp.pl',
-        ConfigurationSetName='olx_raider_config_set',
+        Source="k.gorzyn145@wp.pl",
+        ConfigurationSetName="olx_raider_config_set",
     )
 
 
