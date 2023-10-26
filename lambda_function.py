@@ -17,14 +17,17 @@ MIN_AREA = os.environ.get("MIN_AREA", 35)
 PROHIBITED_DISTRICTS = ["Białołęka", "Ursus", "Wawer", "Targówek", "Bemowo"]
 
 
-def get_html():
+def get_selenium_driver():
     options = Options()
-    options.binary_location = "./headless-chromium"
+    options.binary_location = '/opt/chrome/chrome'
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--single-process")
     options.add_argument("--disable-dev-shm-usage")
-    driver = webdriver.Chrome("./chromedriver", options=options)
+    return webdriver.Chrome("/opt/chromedriver", options=options)
+
+
+def get_html(driver):
     driver.get(OLX_LINK)
     wait = WebDriverWait(driver, 20)
     element = EC.visibility_of_element_located(
@@ -36,7 +39,9 @@ def get_html():
 
 def get_offers():
     result = []
-    soup = BeautifulSoup(get_html(), "html.parser")
+    driver = get_selenium_driver()
+    soup = BeautifulSoup(get_html(driver), "html.parser")
+    driver.close()
     offers = soup.find_all("div", {"class": "css-1sw7q4x"})
     for offer in offers:
         try:
@@ -128,10 +133,7 @@ def send_email(count, offers):
 def lambda_handler(event, context):
     o_count, offers = get_offers()
     send_email(o_count, offers)
-    sys.exit(0)
-    # return {
-    #     'statusCode': 200
-    # }
-
-
-lambda_handler("", "")
+    return {
+        'statusCode': 200,
+        'body': 'Email with offers has been sent!'
+    }
