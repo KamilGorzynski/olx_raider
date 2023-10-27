@@ -19,6 +19,8 @@ COPY --from=build /opt/chromedriver-linux64 /opt/
 
 COPY lambda_function.py ${LAMBDA_TASK_ROOT}
 
+COPY lambda_utils ${LAMBDA_TASK_ROOT}/lambda_utils
+
 COPY requirements.txt ${LAMBDA_TASK_ROOT}
 
 RUN pip install --upgrade pip

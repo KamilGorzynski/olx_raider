@@ -1,3 +1,4 @@
 .idea
 chromedriver
 headless-chromium
+lambda_utils/__pycache__*
